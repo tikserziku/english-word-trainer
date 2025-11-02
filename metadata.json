@@ -1,0 +1,7 @@
+{
+  "name": "Copy of LingoChamp: English Word Trainer",
+  "description": "An interactive application designed to help a 15-year-old learn English vocabulary. It features pronunciation by a robot voice, speech recognition for practice, and spelling tests. The app includes teacher-like functions to guide the learning process effectively.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
