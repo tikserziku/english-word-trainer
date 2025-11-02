@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Word, LearningPhase } from './types';
 import { WORDS_DATA } from './constants';
 import { getExampleSentence } from './services/geminiService';
+import { speakWithGoogleTTS } from './services/ttsService';
 import { CheckCircleIcon, LightBulbIcon, MicrophoneIcon, VolumeUpIcon, XCircleIcon } from './components/IconComponents';
 
 // --- Helper Components defined outside App to prevent re-creation on render ---
@@ -60,25 +61,9 @@ export default function App() {
     useEffect(() => { currentWordRef.current = words[currentWordIndex] }, [words, currentWordIndex]);
 
 
-    const speak = useCallback((text: string, lang = 'en-US') => {
-        // Cancel any ongoing speech
-        speechSynthesis.cancel();
-
-        // Small delay for mobile devices
-        setTimeout(() => {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = lang;
-            utterance.rate = 0.9; // Slightly slower for clarity
-            utterance.pitch = 1.0;
-            utterance.volume = 1.0;
-
-            // Handle errors on mobile
-            utterance.onerror = (event) => {
-                console.error('Speech synthesis error:', event);
-            };
-
-            speechSynthesis.speak(utterance);
-        }, 100);
+    const speak = useCallback(async (text: string, lang = 'en-US') => {
+        // Use Google Cloud TTS for reliable mobile support
+        await speakWithGoogleTTS(text, lang);
     }, []);
     
     useEffect(() => {
