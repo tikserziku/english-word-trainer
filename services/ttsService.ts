@@ -19,7 +19,16 @@ export const speakWithGoogleTTS = async (text: string, lang = 'en-US'): Promise<
     // Check cache first
     if (audioCache[text]) {
       const audio = new Audio(audioCache[text]);
-      audio.play();
+      // ВАЖНО для мобильных: play() возвращает Promise
+      const playPromise = audio.play();
+
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.error('Audio play failed:', error);
+          // Fallback на Web Speech API
+          fallbackToWebSpeech(text, lang);
+        });
+      }
       return;
     }
 
@@ -49,6 +58,7 @@ export const speakWithGoogleTTS = async (text: string, lang = 'en-US'): Promise<
     );
 
     if (!response.ok) {
+      console.error(`TTS API failed: ${response.status}`);
       throw new Error(`TTS API failed: ${response.status}`);
     }
 
@@ -62,9 +72,19 @@ export const speakWithGoogleTTS = async (text: string, lang = 'en-US'): Promise<
       // Cache for later use
       audioCache[text] = audioUrl;
 
-      // Play audio
+      // Play audio - ВАЖНО для мобильных
       const audio = new Audio(audioUrl);
-      audio.play();
+      audio.load(); // Предзагрузка для мобильных
+
+      const playPromise = audio.play();
+
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.error('Audio play failed:', error);
+          // Fallback на Web Speech API
+          fallbackToWebSpeech(text, lang);
+        });
+      }
     }
   } catch (error) {
     console.error('Google TTS error:', error);
@@ -90,20 +110,49 @@ function base64ToBlob(base64: string, mimeType: string): Blob {
 
 /**
  * Fallback to browser's built-in Speech Synthesis
+ * Improved for mobile browsers
  */
 function fallbackToWebSpeech(text: string, lang: string): void {
   if ('speechSynthesis' in window) {
     speechSynthesis.cancel();
 
-    setTimeout(() => {
+    // Для мобильных нужно дождаться загрузки голосов
+    const speak = () => {
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = lang;
-      utterance.rate = 0.9;
+      utterance.rate = 0.85; // Медленнее для чёткости на мобильных
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
-      speechSynthesis.speak(utterance);
-    }, 100);
+      // Попытка выбрать лучший голос для мобильных
+      const voices = speechSynthesis.getVoices();
+      const enVoice = voices.find(voice =>
+        voice.lang.startsWith('en') && !voice.localService
+      ) || voices.find(voice => voice.lang.startsWith('en'));
+
+      if (enVoice) {
+        utterance.voice = enVoice;
+      }
+
+      // Обработка ошибок для мобильных
+      utterance.onerror = (event) => {
+        console.error('Speech synthesis error:', event);
+      };
+
+      // ВАЖНО: небольшая задержка помогает на iOS
+      setTimeout(() => {
+        speechSynthesis.speak(utterance);
+      }, 100);
+    };
+
+    // Если голоса еще не загружены (часто на мобильных)
+    if (speechSynthesis.getVoices().length === 0) {
+      speechSynthesis.addEventListener('voiceschanged', speak, { once: true });
+      // Таймаут на случай если событие не сработает
+      setTimeout(speak, 500);
+    } else {
+      speak();
+    }
   }
 }
 
