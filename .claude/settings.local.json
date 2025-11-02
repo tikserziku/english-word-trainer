@@ -14,7 +14,8 @@
       "Bash(git remote:*)",
       "Bash(git branch:*)",
       "Bash(git push:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm run type-check:*)"
     ],
     "deny": [],
     "ask": []
