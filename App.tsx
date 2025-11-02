@@ -22,10 +22,15 @@ const WordCard: React.FC<{ word: Word, onSpeak: () => void }> = ({ word, onSpeak
     <div className="bg-gray-800 p-6 rounded-xl shadow-lg w-full max-w-lg text-center transform transition-all duration-300">
         <h2 className="text-4xl font-bold text-purple-400">{word.word}</h2>
         <p className="text-xl text-gray-400 mt-1">{word.pronunciation}</p>
-        <button onClick={onSpeak} className="mt-4 text-gray-300 hover:text-purple-400 transition-colors">
-            <VolumeUpIcon className="w-8 h-8 mx-auto" />
+        <button
+            onClick={onSpeak}
+            className="mt-4 px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-full text-white font-semibold transition-all transform hover:scale-105 flex items-center gap-2 mx-auto"
+            aria-label="Listen to pronunciation"
+        >
+            <VolumeUpIcon className="w-6 h-6" />
+            <span>Listen</span>
         </button>
-        <div className="mt-4 text-left space-y-2">
+        <div className="mt-6 text-left space-y-2">
             <p><strong className="text-purple-300">Translation (LT):</strong> {word.translation}</p>
             <p><strong className="text-purple-300">Explanation (EN):</strong> {word.explanation}</p>
         </div>
@@ -56,13 +61,54 @@ export default function App() {
 
 
     const speak = useCallback((text: string, lang = 'en-US') => {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = lang;
-        speechSynthesis.speak(utterance);
+        // Cancel any ongoing speech
+        speechSynthesis.cancel();
+
+        // Small delay for mobile devices
+        setTimeout(() => {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = lang;
+            utterance.rate = 0.9; // Slightly slower for clarity
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+
+            // Handle errors on mobile
+            utterance.onerror = (event) => {
+                console.error('Speech synthesis error:', event);
+            };
+
+            speechSynthesis.speak(utterance);
+        }, 100);
     }, []);
     
     useEffect(() => {
         setWords([...WORDS_DATA].sort(() => Math.random() - 0.5));
+
+        // Initialize speech synthesis for mobile devices
+        // This helps with autoplay restrictions on mobile browsers
+        const initSpeech = () => {
+            if ('speechSynthesis' in window) {
+                // Trigger speech synthesis to "unlock" it on mobile
+                const utterance = new SpeechSynthesisUtterance('');
+                speechSynthesis.speak(utterance);
+                speechSynthesis.cancel();
+            }
+        };
+
+        // Call on first user interaction
+        const handleFirstInteraction = () => {
+            initSpeech();
+            document.removeEventListener('click', handleFirstInteraction);
+            document.removeEventListener('touchstart', handleFirstInteraction);
+        };
+
+        document.addEventListener('click', handleFirstInteraction);
+        document.addEventListener('touchstart', handleFirstInteraction);
+
+        return () => {
+            document.removeEventListener('click', handleFirstInteraction);
+            document.removeEventListener('touchstart', handleFirstInteraction);
+        };
     }, []);
 
     const currentWord = words[currentWordIndex];
